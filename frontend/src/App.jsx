@@ -3,20 +3,16 @@ import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { Alert, Button, Chip, Spinner, Tabs } from '@heroui/react'
 import { auth, googleProvider } from './services/firebase'
 import { extractSlug, getSolvedProblems, getSolvedStats } from './services/leetcode'
-import { addProblemBySlug, saveSolution, subscribeProblems, syncRecentSolved } from './services/problems'
+import { addProblemBySlug, deleteProblem, saveSolution, subscribeProblems, syncRecentSolved } from './services/problems'
 import Card from './components/Card'
 import './App.css'
 
 const USERNAME = 'Kalousu'
 
-const DIFFICULTY_COLOR = {
-  All: 'accent',
-  Easy: 'success',
-  Medium: 'warning',
-  Hard: 'danger',
-}
-
 const DIFFICULTY_ORDER = { Easy: 0, Medium: 1, Hard: 2 }
+
+const selectClass =
+  'aero-field h-10 rounded-xl px-2 text-sm'
 
 const byNumber = (a, b) => Number(a.questionFrontendId) - Number(b.questionFrontendId)
 
@@ -31,7 +27,15 @@ function App() {
   const [authReady, setAuthReady] = useState(false)
   const [newSlug, setNewSlug] = useState('')
   const [adding, setAdding] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addError, setAddError] = useState(null)
   const [syncing, setSyncing] = useState(false)
+
+  // Suche und Filter
+  const [query, setQuery] = useState('')
+  const [difficultyFilter, setDifficultyFilter] = useState('all')
+  const [tagFilter, setTagFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   // Login-Status beobachten
   useEffect(
@@ -91,8 +95,32 @@ function App() {
     }
   }, [uid, authReady])
 
+  const allTags = useMemo(
+    () => [...new Set(problems.flatMap((p) => (p.topicTags ?? []).map((t) => t.name)))].sort(),
+    [problems]
+  )
+
+  const filtersActive =
+    query.trim() !== '' || difficultyFilter !== 'all' || tagFilter !== 'all' || statusFilter !== 'all'
+
+  const resetFilters = () => {
+    setQuery('')
+    setDifficultyFilter('all')
+    setTagFilter('all')
+    setStatusFilter('all')
+  }
+
   const sortedProblems = useMemo(() => {
-    const list = [...problems]
+    const q = query.trim().toLowerCase()
+    const list = problems.filter((p) => {
+      if (q && !p.title.toLowerCase().includes(q) && !String(p.questionFrontendId).includes(q)) return false
+      if (difficultyFilter !== 'all' && p.difficulty !== difficultyFilter) return false
+      if (tagFilter !== 'all' && !(p.topicTags ?? []).some((t) => t.name === tagFilter)) return false
+      if (statusFilter === 'solution' && !p.code) return false
+      if (statusFilter === 'no-solution' && p.code) return false
+      if (statusFilter === 'notes' && !p.notes) return false
+      return true
+    })
     if (sortBy === 'difficulty') {
       return list.sort(
         (a, b) =>
@@ -105,7 +133,7 @@ function App() {
     }
     // 'recent': neueste zuerst, manuell nachgetragene (ohne Datum) ans Ende
     return list.sort((a, b) => (b.solvedAt ?? -1) - (a.solvedAt ?? -1) || byNumber(b, a))
-  }, [problems, sortBy])
+  }, [problems, sortBy, query, difficultyFilter, tagFilter, statusFilter])
 
   const totalSolved = stats.find((s) => s.difficulty === 'All')?.count
 
@@ -116,16 +144,19 @@ function App() {
     e.preventDefault()
     if (!newSlug.trim() || !uid) return
     setAdding(true)
-    setError(null)
+    setAddError(null)
     try {
       await addProblemBySlug(uid, extractSlug(newSlug))
       setNewSlug('')
+      setAddOpen(false)
     } catch (err) {
-      setError(err.message)
+      setAddError(err.message)
     } finally {
       setAdding(false)
     }
   }
+
+  const handleDelete = (titleSlug) => deleteProblem(uid, titleSlug)
 
   const handleSync = async () => {
     setSyncing(true)
@@ -141,17 +172,59 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-10 border-b border-white/30 bg-white/60 backdrop-blur-md shadow-sm">
+      <header className="glass-bar sticky top-0 z-10">
         <div className="flex items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-emerald-400 text-lg font-bold text-white shadow">
-              L
+            <div className="aero-orb">
+              <span className="relative z-[1]">L</span>
             </div>
             <h1 className="text-xl font-bold tracking-tight text-slate-800">
               LeetCode Tracker
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            {user && (
+              <div className="relative">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="aero-btn"
+                  aria-expanded={addOpen}
+                  onPress={() => setAddOpen((o) => !o)}
+                >
+                  + Aufgabe
+                </Button>
+                {addOpen && (
+                  <form
+                    onSubmit={handleAdd}
+                    onKeyDown={(e) => e.key === 'Escape' && setAddOpen(false)}
+                    className="glass-panel absolute right-0 top-full z-20 mt-2 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-2xl p-3"
+                  >
+                    <label htmlFor="add-slug" className="text-sm font-semibold text-slate-800">
+                      Aufgabe hinzufügen
+                    </label>
+                    <input
+                      id="add-slug"
+                      autoFocus
+                      value={newSlug}
+                      onChange={(e) => setNewSlug(e.target.value)}
+                      placeholder="LeetCode-URL oder Slug, z. B. two-sum"
+                      className="aero-field h-10 rounded-xl px-3 text-sm"
+                    />
+                    {addError && <p className="text-sm text-red-700">{addError}</p>}
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant="primary"
+                      className="aero-btn h-10"
+                      isDisabled={adding || !newSlug.trim()}
+                    >
+                      {adding ? 'Lädt...' : 'Hinzufügen'}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            )}
             <Chip variant="soft">@{USERNAME}</Chip>
             {authReady &&
               (user ? (
@@ -159,12 +232,12 @@ function App() {
                   <span className="hidden text-sm text-slate-700 sm:inline">
                     {user.displayName ?? user.email}
                   </span>
-                  <Button size="sm" variant="secondary" onPress={logout}>
+                  <Button size="sm" variant="secondary" className="aero-btn-secondary" onPress={logout}>
                     Abmelden
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="primary" onPress={login}>
+                <Button size="sm" variant="primary" className="aero-btn" onPress={login}>
                   Mit Google anmelden
                 </Button>
               ))}
@@ -178,18 +251,18 @@ function App() {
             {stats.map(({ difficulty, count }) => (
               <div
                 key={difficulty}
-                className="rounded-2xl border border-white/40 bg-white/60 p-4 text-center shadow-sm backdrop-blur-md"
+                className="glass glass-gloss rounded-2xl p-4 text-center"
               >
                 <p className="text-3xl font-bold text-slate-800">{count}</p>
-                <Chip size="sm" variant="soft" color={DIFFICULTY_COLOR[difficulty]}>
+                <p className="text-sm font-semibold text-slate-700">
                   {difficulty === 'All' ? 'Gesamt' : difficulty}
-                </Chip>
+                </p>
               </div>
             ))}
           </section>
         )}
 
-        <section className="flex flex-col gap-2.5 rounded-3xl border border-white/50 bg-white/75 p-5 shadow-lg backdrop-blur-lg">
+        <section className="glass flex flex-col gap-2.5 rounded-3xl p-5">
           <Tabs selectedKey={sortBy} onSelectionChange={(key) => setSortBy(String(key))}>
             <Tabs.ListContainer>
               <Tabs.List aria-label="Sortierung der gelösten Challenges">
@@ -209,6 +282,39 @@ function App() {
             </Tabs.ListContainer>
           </Tabs>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Suchen: Titel oder Nummer"
+              aria-label="Suche"
+              className="aero-field h-10 min-w-0 flex-1 rounded-xl px-3 text-sm"
+            />
+            <select value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value)} aria-label="Schwierigkeit" className={selectClass}>
+              <option value="all">Alle Schwierigkeiten</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} aria-label="Tag" className={selectClass}>
+              <option value="all">Alle Tags</option>
+              {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {user && (
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status" className={selectClass}>
+                <option value="all">Alle</option>
+                <option value="solution">Mit Lösung</option>
+                <option value="no-solution">Ohne Lösung</option>
+                <option value="notes">Mit Notizen</option>
+              </select>
+            )}
+            {filtersActive && (
+              <Button size="sm" variant="secondary" className="aero-btn-secondary h-10" onPress={resetFilters}>
+                Zurücksetzen
+              </Button>
+            )}
+          </div>
+
           {authReady && !user && (
             <p className="text-sm text-slate-700">
               Du siehst nur die letzten 20 gelösten Aufgaben. Melde dich an, um alle zu speichern
@@ -217,20 +323,8 @@ function App() {
           )}
 
           {user && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <form onSubmit={handleAdd} className="flex flex-1 items-center gap-2">
-                <input
-                  value={newSlug}
-                  onChange={(e) => setNewSlug(e.target.value)}
-                  placeholder="Aufgabe hinzufügen: URL oder Slug, z. B. two-sum"
-                  aria-label="LeetCode-URL oder Slug"
-                  className="min-w-0 flex-1 h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm outline-none focus:border-sky-500"
-                />
-                <Button type="submit" size="sm" variant="primary" className="h-10" isDisabled={adding || !newSlug.trim()}>
-                  {adding ? 'Lädt...' : 'Hinzufügen'}
-                </Button>
-              </form>
-              <Button size="sm" variant="secondary" className="h-10" onPress={handleSync} isDisabled={syncing}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" className="aero-btn-secondary h-10" onPress={handleSync} isDisabled={syncing}>
                 {syncing ? 'Synchronisiert...' : 'Mit LeetCode abgleichen'}
               </Button>
               {totalSolved !== undefined && (
@@ -257,6 +351,16 @@ function App() {
             </Alert>
           )}
 
+          {!loading && problems.length > 0 && (
+            <p className="text-sm text-slate-700">
+              {filtersActive ? `${sortedProblems.length} von ${problems.length} Aufgaben` : `${problems.length} Aufgaben`}
+            </p>
+          )}
+
+          {!loading && problems.length > 0 && sortedProblems.length === 0 && (
+            <p className="py-6 text-center text-slate-700">Keine Treffer.</p>
+          )}
+
           {sortedProblems.map((p) => (
             <Card
               key={p.titleSlug}
@@ -270,12 +374,13 @@ function App() {
               code={p.code}
               language={p.language}
               onSaveSolution={uid ? (fields) => saveSolution(uid, p.titleSlug, fields) : undefined}
+              onDelete={uid ? () => handleDelete(p.titleSlug) : undefined}
             />
           ))}
         </section>
       </main>
 
-      <footer className="border-t border-white/30 bg-white/60 px-4 py-3 text-center text-sm text-slate-700 shadow-sm backdrop-blur-md">
+      <footer className="glass-bar glass-bar-footer px-4 py-3 text-center text-sm text-slate-700">
         Daten von LeetCode
       </footer>
     </div>

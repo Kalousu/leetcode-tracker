@@ -1,12 +1,161 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* Hintergrundbild, fixiert und geblurrt */
+/* Schrift: Frutiger ist kostenpflichtig; wer sie installiert hat, bekommt sie.
+   Sonst Open Sans (gebündelt), eine sehr ähnliche humanistische Grotesk. */
+@theme {
+  --font-sans: "Frutiger", "Open Sans", "Segoe UI", system-ui, sans-serif;
+}
+body {
+  font-family: var(--font-sans);
+}
+
+/* Hintergrundbild, fixiert und nur leicht geblurrt */
 body::before {
   content: "";
   position: fixed;
-  inset: -20px; /* Rand überstehen lassen, damit der Blur keine hellen Kanten zeigt */
+  inset: -8px; /* Rand überstehen lassen, damit der Blur keine hellen Kanten zeigt */
   z-index: -1;
   background: url("./assets/frutiger.png") center / cover no-repeat;
-  filter: blur(8px);
+  filter: blur(2px);
+}
+
+/* ---------- Frutiger Aero: Glas ---------- */
+
+/* Flächen aus Milchglas: heller Verlauf, starker Backdrop-Blur, weiße Innenkante */
+.glass {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.08) 100%);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(14px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 10px 30px rgba(0, 70, 140, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Glanz-Streifen auf der oberen Hälfte, typisch für Aero-Buttons und -Kacheln */
+.glass-gloss {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.1) 55%, rgba(255, 255, 255, 0.04) 100%);
+}
+
+/* Leisten (Header/Footer) */
+.glass-bar {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.16) 100%);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(14px) saturate(1.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 22px rgba(0, 70, 140, 0.25), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+}
+.glass-bar-footer {
+  border-bottom: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 -4px 22px rgba(0, 70, 140, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Aufklappfenster (Popover): deckender als normales Glas, damit der Inhalt dahinter nicht stört */
+.glass-panel {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(235, 247, 255, 0.68) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(1.7);
+  backdrop-filter: blur(18px) saturate(1.7);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 32px rgba(0, 70, 140, 0.35), inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* Aufgaben-Karten: Glas mit farbigem Rahmen und Leuchten (--accent je Schwierigkeit) */
+.glass-card {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.1) 100%);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  backdrop-filter: blur(12px) saturate(1.6);
+  border: 2px solid var(--accent, rgba(255, 255, 255, 0.8));
+  box-shadow:
+    0 6px 20px rgba(0, 70, 140, 0.25),
+    0 0 14px color-mix(in srgb, var(--accent, #38bdf8) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.2s;
+}
+.glass-card:hover {
+  box-shadow:
+    0 8px 26px rgba(0, 70, 140, 0.3),
+    0 0 22px color-mix(in srgb, var(--accent, #38bdf8) 75%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* ---------- Frutiger Aero: glänzende Buttons ---------- */
+.aero-btn,
+.aero-btn-secondary {
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  transition: filter 0.15s, transform 0.1s;
+}
+.aero-btn:hover,
+.aero-btn-secondary:hover { filter: brightness(1.08); }
+.aero-btn:active,
+.aero-btn-secondary:active { transform: translateY(1px); }
+
+.aero-btn {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 60, 120, 0.6);
+  background-image: linear-gradient(180deg, #8fe3ff 0%, #2eaef0 48%, #0b86d6 52%, #3cc4ff 100%);
+  box-shadow: 0 2px 8px rgba(0, 90, 170, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.aero-btn-secondary {
+  color: #0b3d63;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(220, 240, 252, 0.8) 48%, rgba(190, 225, 245, 0.8) 52%, rgba(235, 248, 255, 0.95) 100%);
+  box-shadow: 0 2px 8px rgba(0, 90, 170, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+.aero-btn[disabled],
+.aero-btn-secondary[disabled],
+.aero-btn[data-disabled],
+.aero-btn-secondary[data-disabled] { filter: grayscale(0.6) opacity(0.7); }
+
+/* ---------- Frutiger Aero: plastische Elemente ---------- */
+
+/* Logo: sauberer Aqua-Kreis mit einem einzigen weichen Glanz */
+.aero-orb {
+  position: relative;
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-shadow: 0 1px 2px rgba(0, 70, 130, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  background-image: linear-gradient(180deg, #5fd0ff 0%, #1597e6 100%);
+  box-shadow: 0 2px 6px rgba(0, 90, 170, 0.4);
+}
+/* Glanz: heller Verlauf auf der oberen Hälfte */
+.aero-orb::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 50% 0;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.15));
+  pointer-events: none;
+}
+
+/* Chips: Farbe von HeroUI bleibt, darüber liegt ein Glanz wie bei einem Tropfen */
+.chip {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0) 52%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 3px rgba(0, 70, 140, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Eingabefelder: leicht eingelassen, mit blauem Leuchten beim Fokus */
+.aero-field {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 2px 4px rgba(0, 70, 140, 0.25), 0 1px 0 rgba(255, 255, 255, 0.7);
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+.aero-field:focus,
+.aero-field-within:focus-within {
+  box-shadow: inset 0 2px 4px rgba(0, 70, 140, 0.25), 0 0 0 3px rgba(70, 185, 255, 0.55);
 }

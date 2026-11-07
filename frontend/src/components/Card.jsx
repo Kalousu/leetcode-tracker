@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Button, Card as HCard, Chip } from "@heroui/react"
+import { Button, Chip } from "@heroui/react"
 import EditorModule from "react-simple-code-editor"
 import Prism from "prismjs" // enthält schon clike und javascript
 import "prismjs/components/prism-python"
@@ -24,11 +24,11 @@ const DIFFICULTY_COLOR = {
     Hard: "danger",
 }
 
-// Verlauf für den Rahmen je nach Schwierigkeit
-const BORDER_GRADIENT = {
-    Easy: "from-emerald-400 via-sky-400 to-emerald-500",
-    Medium: "from-amber-400 via-orange-400 to-yellow-500",
-    Hard: "from-rose-500 via-fuchsia-500 to-red-500",
+// Akzentfarbe (Rahmen und Leuchten) je nach Schwierigkeit
+const ACCENT = {
+    Easy: "#34d399",
+    Medium: "#fbbf24",
+    Hard: "#fb7185",
 }
 
 const LANGUAGES = ["Python", "JavaScript", "TypeScript", "Java", "C++", "C", "C#", "Go", "Rust", "Kotlin", "Swift", "Sonstige"]
@@ -54,7 +54,7 @@ function highlight(code, language) {
 const MAX_FILE_SIZE = 200 * 1024 // 200 KB reicht für Code locker und bleibt weit unter Firestores 1-MB-Limit
 
 const fieldClass =
-    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500"
+    "aero-field w-full rounded-xl px-3 py-2 text-sm"
 
 // Beschreibung: ab etwa 10 Zeilen eingeklappt mit "Mehr anzeigen"
 const DESCRIPTION_MAX_HEIGHT = 224 // px, ca. 10 Zeilen
@@ -82,12 +82,18 @@ function Description({ html }) {
                 <div
                     ref={ref}
                     className="description overflow-hidden"
-                    style={collapsed ? { maxHeight: DESCRIPTION_MAX_HEIGHT } : undefined}
+                    style={
+                        collapsed
+                            ? {
+                                maxHeight: DESCRIPTION_MAX_HEIGHT,
+                                // unten ausblenden statt hart abschneiden
+                                maskImage: "linear-gradient(to bottom, black 70%, transparent)",
+                                WebkitMaskImage: "linear-gradient(to bottom, black 70%, transparent)",
+                            }
+                            : undefined
+                    }
                     dangerouslySetInnerHTML={{ __html: html }}
                 />
-                {collapsed && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-gray-200 to-transparent" />
-                )}
             </div>
             {overflowing && (
                 <button
@@ -99,6 +105,45 @@ function Description({ html }) {
                     {expanded ? "Weniger anzeigen ▴" : "Mehr anzeigen ▾"}
                 </button>
             )}
+        </div>
+    )
+}
+
+// Löschen mit Rückfrage direkt in der Card
+function DeleteRow({ onDelete }) {
+    const [confirming, setConfirming] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [error, setError] = useState(null)
+
+    const handleDelete = async () => {
+        setDeleting(true)
+        setError(null)
+        try {
+            await onDelete() // die Card verschwindet danach über den Live-Listener
+        } catch (err) {
+            setError(err.message)
+            setDeleting(false)
+        }
+    }
+
+    return (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/10 pt-3">
+            {confirming ? (
+                <>
+                    <span className="text-sm">Aufgabe samt Lösung und Notizen wirklich löschen?</span>
+                    <Button size="sm" variant="danger" onPress={handleDelete} isDisabled={deleting}>
+                        {deleting ? "Löscht..." : "Ja, löschen"}
+                    </Button>
+                    <Button size="sm" variant="secondary" className="aero-btn-secondary" onPress={() => setConfirming(false)} isDisabled={deleting}>
+                        Abbrechen
+                    </Button>
+                </>
+            ) : (
+                <Button size="sm" variant="danger-soft" onPress={() => setConfirming(true)}>
+                    Aufgabe löschen
+                </Button>
+            )}
+            {error && <span className="text-sm text-red-700">Fehler: {error}</span>}
         </div>
     )
 }
@@ -148,17 +193,17 @@ function Solution({ titleSlug, notes = "", code = "", language = "Python", onSav
                     value={draft.language}
                     onChange={(e) => update({ language: e.target.value })}
                     aria-label="Sprache"
-                    className="rounded-xl border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                    className="aero-field rounded-xl px-2 py-1.5 text-sm"
                 >
                     {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
                 </select>
-                <label className="cursor-pointer rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">
+                <label className="aero-btn-secondary cursor-pointer px-3 py-1.5 text-sm">
                     Datei hochladen
                     <input type="file" onChange={handleFile} className="hidden" />
                 </label>
             </div>
 
-            <div className="max-h-96 overflow-auto rounded-xl border border-gray-300 bg-white focus-within:border-sky-500">
+            <div className="aero-field aero-field-within max-h-96 overflow-auto rounded-xl">
                 <Editor
                     value={draft.code}
                     onValueChange={(code) => update({ code })}
@@ -182,7 +227,7 @@ function Solution({ titleSlug, notes = "", code = "", language = "Python", onSav
             />
 
             <div className="flex items-center gap-3">
-                <Button size="sm" variant="primary" onPress={handleSave} isDisabled={!dirty || saving}>
+                <Button size="sm" variant="primary" className="aero-btn" onPress={handleSave} isDisabled={!dirty || saving}>
                     {saving ? "Speichert..." : "Speichern"}
                 </Button>
                 {message && <span className="text-sm text-slate-700">{message}</span>}
@@ -191,13 +236,12 @@ function Solution({ titleSlug, notes = "", code = "", language = "Python", onSav
     )
 }
 
-function Card({ titleSlug, id, title, difficulty, content, tags = [], notes, code, language, onSaveSolution }) {
+function Card({ titleSlug, id, title, difficulty, content, tags = [], notes, code, language, onSaveSolution, onDelete }) {
     const [open, setOpen] = useState(false)
-    const gradient = BORDER_GRADIENT[difficulty] ?? "from-sky-400 to-indigo-500"
 
     return (
-        <div className={`rounded-2xl bg-gradient-to-r ${gradient} p-[2px] shadow-md transition-shadow hover:shadow-xl`}>
-            <HCard className="w-full rounded-[14px] bg-gray-200 gap-0">
+        <div className="glass-card overflow-hidden rounded-2xl" style={{ "--accent": ACCENT[difficulty] }}>
+            <div>
                 <button
                     type="button"
                     onClick={() => setOpen((o) => !o)}
@@ -230,9 +274,10 @@ function Card({ titleSlug, id, title, difficulty, content, tags = [], notes, cod
                         {onSaveSolution && (
                             <Solution titleSlug={titleSlug} notes={notes} code={code} language={language} onSave={onSaveSolution} />
                         )}
+                        {onDelete && <DeleteRow onDelete={onDelete} />}
                     </div>
                 )}
-            </HCard>
+            </div>
         </div>
     )
 }
