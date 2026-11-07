@@ -48,3 +48,28 @@ export async function getRecentSolved(username, limit = 20) {
     solvedAt: new Date(Number(s.timestamp) * 1000),
   }))
 }
+
+const QUESTION_QUERY = `
+  query question($titleSlug: String!) {
+    question(titleSlug: $titleSlug) {
+      questionFrontendId
+      title
+      titleSlug
+      difficulty
+      content
+      topicTags { name }
+    }
+  }
+`
+
+export async function getQuestion(titleSlug) {
+  const data = await graphql(QUESTION_QUERY, { titleSlug })
+  return data.question
+}
+
+// Gelöste Probleme (einmalig pro Aufgabe) inkl. Beschreibung
+export async function getSolvedProblems(username, limit = 20) {
+  const recent = await getRecentSolved(username, limit)
+  const slugs = [...new Set(recent.map((s) => s.titleSlug))]
+  return Promise.all(slugs.map(getQuestion))
+}
