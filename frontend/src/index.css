@@ -1,2 +1,12 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+
+/* Hintergrundbild, fixiert und geblurrt */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20px; /* Rand überstehen lassen, damit der Blur keine hellen Kanten zeigt */
+  z-index: -1;
+  background: url("./assets/frutiger.png") center / cover no-repeat;
+  filter: blur(8px);
+}

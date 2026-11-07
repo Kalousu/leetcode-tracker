@@ -67,9 +67,38 @@ export async function getQuestion(titleSlug) {
   return data.question
 }
 
-// Gelöste Probleme (einmalig pro Aufgabe) inkl. Beschreibung
+// Aus einer URL (https://leetcode.com/problems/two-sum/...) oder einem Slug/Titel den Slug machen
+export function extractSlug(input) {
+  const text = input.trim()
+  const match = text.match(/leetcode\.[a-z]+\/problems\/([^/?#\s]+)/i)
+  if (match) return match[1].toLowerCase()
+  return text.toLowerCase().replace(/\s+/g, '-')
+}
+
+// Frage holen und in das Format bringen, das wir speichern
+export async function fetchProblem(titleSlug, solvedAt = null, source = 'manual') {
+  const q = await getQuestion(titleSlug)
+  if (!q) throw new Error(`Aufgabe "${titleSlug}" nicht gefunden`)
+  return {
+    titleSlug: q.titleSlug,
+    questionFrontendId: q.questionFrontendId,
+    title: q.title,
+    difficulty: q.difficulty,
+    content: q.content ?? '',
+    topicTags: q.topicTags ?? [],
+    solvedAt, // ms seit 1970 oder null (z. B. bei manuell nachgetragenen)
+    source,
+  }
+}
+
+// Letzte gelöste Aufgaben (max. 20, das ist LeetCodes Limit) inkl. Beschreibung
 export async function getSolvedProblems(username, limit = 20) {
   const recent = await getRecentSolved(username, limit)
-  const slugs = [...new Set(recent.map((s) => s.titleSlug))]
-  return Promise.all(slugs.map(getQuestion))
+  const firstSeen = new Map() // Slug -> neuester Zeitstempel (Liste ist neueste zuerst)
+  for (const s of recent) {
+    if (!firstSeen.has(s.titleSlug)) firstSeen.set(s.titleSlug, s.solvedAt.getTime())
+  }
+  return Promise.all(
+    [...firstSeen].map(([slug, ts]) => fetchProblem(slug, ts, 'sync'))
+  )
 }
